@@ -7,28 +7,29 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
-export default function SetRole() {
+export default function SetRolePage() {
+    const [email, setEmail] = useState('');
     const [uid, setUid] = useState('');
     const [role, setRole] = useState<'admin' | 'expert' | 'family' | ''>('');
+    const [currentRole, setCurrentRole] = useState<string | null>(null);
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const [currentRole, setCurrentRole] = useState<string | null>(null);
 
     const checkRole = async () => {
-        if (!uid) {
-            setError('UID gerekli');
+        if (!email) {
+            setError('Email gerekli');
             return;
         }
 
         try {
             setLoading(true);
-            const response = await fetch('/api/check-role', {
+            const response = await fetch('/api/user-role', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ uid }),
+                body: JSON.stringify({ action: 'check', email }),
             });
 
             if (!response.ok) {
@@ -36,44 +37,43 @@ export default function SetRole() {
             }
 
             const data = await response.json();
-            setCurrentRole(data.user.role || 'Rol atanmamış');
+            setCurrentRole(data.user.role || 'Rol atanmadı');
+            setUid(data.user.uid);
             setError('');
-
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Bir hata oluştu');
+        } catch (err: any) {
+            setError(err.message || 'Bir hata oluştu');
             setCurrentRole(null);
         } finally {
             setLoading(false);
         }
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        setMessage('');
-        setError('');
+    const setRoleHandler = async () => {
+        if (!uid || !role) {
+            setError('UID ve rol gerekli');
+            return;
+        }
 
         try {
-            const response = await fetch('/api/set-user-role', {
+            setLoading(true);
+            const response = await fetch('/api/user-role', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ uid, role }),
+                body: JSON.stringify({ action: 'set', uid, role }),
             });
 
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Bir hata oluştu');
+                throw new Error('Rol atama başarısız');
             }
 
             const data = await response.json();
-            setMessage(`Kullanıcı rolü başarıyla ${role} olarak güncellendi`);
-            checkRole(); // Rol güncellemesinden sonra mevcut rolü kontrol et
-            setRole('');
-
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Bir hata oluştu');
+            setMessage(data.message);
+            setCurrentRole(role);
+            setError('');
+        } catch (err: any) {
+            setError(err.message || 'Bir hata oluştu');
         } finally {
             setLoading(false);
         }
@@ -83,16 +83,15 @@ export default function SetRole() {
         <div className="flex items-center justify-center min-h-screen bg-gray-50 p-4">
             <Card className="w-full max-w-md">
                 <CardHeader>
-                    <CardTitle>Kullanıcı Rolü Ata</CardTitle>
+                    <CardTitle>Kullanıcı Rolü Yönetimi</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="space-y-4">
                         {message && (
                             <Alert className="bg-green-50">
                                 <AlertDescription>{message}</AlertDescription>
                             </Alert>
                         )}
-                        
                         {error && (
                             <Alert variant="destructive">
                                 <AlertDescription>{error}</AlertDescription>
@@ -100,21 +99,21 @@ export default function SetRole() {
                         )}
 
                         <div className="space-y-2">
-                            <label>Kullanıcı UID</label>
+                            <label>Email ile Rol Kontrolü</label>
                             <div className="flex space-x-2">
                                 <Input
-                                    value={uid}
-                                    onChange={(e) => setUid(e.target.value)}
-                                    placeholder="Kullanıcı UID'si"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    placeholder="Kullanıcı email"
                                     required
                                 />
                                 <Button 
                                     type="button" 
                                     variant="outline"
                                     onClick={checkRole}
-                                    disabled={loading || !uid}
+                                    disabled={loading || !email}
                                 >
-                                    Kontrol Et
+                                    {loading ? 'Kontrol Ediliyor...' : 'Kontrol Et'}
                                 </Button>
                             </div>
                             {currentRole && (
@@ -125,7 +124,14 @@ export default function SetRole() {
                         </div>
 
                         <div className="space-y-2">
-                            <label>Rol</label>
+                            <label>UID ile Rol Atama</label>
+                            <Input
+                                value={uid}
+                                onChange={(e) => setUid(e.target.value)}
+                                placeholder="Kullanıcı UID"
+                                required
+                                readOnly
+                            />
                             <Select value={role} onValueChange={(value: 'admin' | 'expert' | 'family') => setRole(value)}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Rol seçin" />
@@ -139,13 +145,14 @@ export default function SetRole() {
                         </div>
 
                         <Button 
-                            type="submit" 
+                            type="button" 
                             className="w-full"
+                            onClick={setRoleHandler}
                             disabled={loading}
                         >
                             {loading ? 'İşleniyor...' : 'Rol Ata'}
                         </Button>
-                    </form>
+                    </div>
                 </CardContent>
             </Card>
         </div>

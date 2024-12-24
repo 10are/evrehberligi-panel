@@ -1,17 +1,16 @@
-// app/api/create-expert/route.ts
 import { adminAuth } from '@/app/firebaseAdmin';
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
   try {
     const data = await request.json();
-    const { email, password, ...userData } = data;
+    const { email, password } = data;
 
     // 1. Firebase Auth'da kullanıcı oluştur
     const userRecord = await adminAuth.createUser({
       email,
       password,
-      emailVerified: false,
+      emailVerified: false, // İsterseniz true yapabilirsiniz
     });
 
     // 2. Custom claims ekle
@@ -20,9 +19,8 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       uid: userRecord.uid,
-      message: 'Uzman başarıyla oluşturuldu'
+      message: 'Uzman başarıyla oluşturuldu',
     });
-
   } catch (error) {
     console.error('Error creating expert:', error);
     return NextResponse.json(
